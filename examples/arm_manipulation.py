@@ -8,7 +8,8 @@ import example_robot_data
 
 WITHDISPLAY = 'display' in sys.argv or 'CROCODDYL_DISPLAY' in os.environ
 WITHPLOT = 'plot' in sys.argv or 'CROCODDYL_PLOT' in os.environ
-
+#WITHDISPLAY = True
+WITHDISPLAY = True
 # In this example test, we will solve the reaching-goal task with the Talos arm.
 # For that, we use the forward dynamics (with its analytical derivatives)
 # developed inside crocoddyl; it describes inside DifferentialActionModelFullyActuated class.
@@ -87,5 +88,6 @@ if WITHPLOT:
 
 # Visualizing the solution in gepetto-viewer
 if WITHDISPLAY:
-    display = crocoddyl.GepettoDisplay(talos_arm, 4, 4, cameraTF)
+    display = crocoddyl.GepettoDisplay(talos_arm) #, 4, 4, cameraTF)
     display.displayFromSolver(ddp)
+    

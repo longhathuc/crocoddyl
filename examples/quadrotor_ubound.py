@@ -8,7 +8,7 @@ import example_robot_data
 
 WITHDISPLAY = 'display' in sys.argv or 'CROCODDYL_DISPLAY' in os.environ
 WITHPLOT = 'plot' in sys.argv or 'CROCODDYL_PLOT' in os.environ
-
+WITHDISPLAY = True
 hector = example_robot_data.loadHector()
 robot_model = hector.model
 

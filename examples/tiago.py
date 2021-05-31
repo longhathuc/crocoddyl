@@ -7,21 +7,15 @@ import example_robot_data
 
 WITHDISPLAY = 'display' in sys.argv or 'CROCODDYL_DISPLAY' in os.environ
 WITHPLOT = 'plot' in sys.argv or 'CROCODDYL_PLOT' in os.environ
-
-robot = example_robot_data.load('tiago')
+WITHDISPLAY = True
+robot = example_robot_data.load('tiago_no_hand_head_fixed')
 #robot = example_robot_data.loadTiago(True,'wsg')
 robot_model = robot.model
-q0 = robot_model.referenceConfigurations["tuck_arm"]
-# x0 = np.concatenate([q0, np.zeros(robot_model.nv)])
-# robot.q0 = q0
+
+
 DT = 1e-3
 T= 250
-target = np.array([0.8, 0.1, 1.1]) 
-display = crocoddyl.MeshcatDisplay(robot, 4, 4, False)
-
-print("referenceConfigurations:", q0)
-print("robot.q0 size:", robot.q0.shape[0])
-print(robot.q0)
+target = np.array([3.8, 0.1, 1.1]) 
 
 # Create the cost functions
 Mref = crocoddyl.FrameTranslation(robot_model.getFrameId("wrist_tool_joint"), target)
@@ -54,12 +48,22 @@ terminalModel = crocoddyl.IntegratedActionModelEuler(
 
 # Create the problem
 q0 = robot_model.referenceConfigurations["tuck_arm"]
+qnew = [*q0[0:7] , *[0.0,0.0,0.0]]
+# calculate angle of the wheel
+qw1 = np.arctan2(q0[8],q0[9])
+qw2 = np.arctan2(q0[10],q0[11])
+
+
+ 
 x0 = np.concatenate([q0, pinocchio.utils.zero(state.nv)])
 problem = crocoddyl.ShootingProblem(x0, [runningModel] * T, terminalModel)
 
 # Creating the DDP solver for this OC problem, defining a logger
-ddp = crocoddyl.SolverDDP(problem)
-cameraTF = [2., 2.68, 0.54, 0.2, 0.62, 0.72, 0.22]
+ddp = crocoddyl.SolverFDDP(problem)
+ddp.setCallbacks([crocoddyl.CallbackLogger(), crocoddyl.CallbackVerbose()])
+
+cameraTF = [3., 2.68, 1.54, 0.2, 0.62, 0.72, 0.22]
+
 if WITHDISPLAY and WITHPLOT:
     display = crocoddyl.GepettoDisplay(robot, 4, 4, cameraTF)
     ddp.setCallbacks([crocoddyl.CallbackLogger(), crocoddyl.CallbackVerbose(), crocoddyl.CallbackDisplay(display)])
@@ -73,29 +77,28 @@ elif WITHPLOT:
     ])
 else:
     ddp.setCallbacks([crocoddyl.CallbackVerbose()])
-
-
 # Solving it with the DDP algorithm
 ddp.solve()
 
 
+
+ # Visualizing the solution in gepetto-viewer
+display.displayFromSolver(ddp)
+
+robot_data = robot_model.createData()
+xT = ddp.xs[-1]
+pinocchio.forwardKinematics(robot_model, robot_data, xT[:state.nq])
+pinocchio.updateFramePlacements(robot_model, robot_data)
+print('Finally reached = ', robot_data.oMf[robot_model.getFrameId("wrist_tool_joint")].translation.T)
+
+
 # Plotting the solution and the DDP convergence
-if WITHPLOT:
-    log = ddp.getCallbacks()[0]
-    crocoddyl.plotOCSolution(log.xs, log.us, figIndex=1, show=False)
-    crocoddyl.plotConvergence(log.costs, log.u_regs, log.x_regs, log.grads, log.stops, log.steps, figIndex=2)
-
-# Visualizing the solution in gepetto-viewer
+#if WITHPLOT:
+#    log = ddp.getCallbacks()[0]
+#    crocoddyl.plotOCSolution(log.xs, log.us, figIndex=1, show=False)
+#    crocoddyl.plotConvergence(log.costs, log.u_regs, log.x_regs, log.grads, log.stops, log.steps, figIndex=2)
+#
+## Visualizing the solution in gepetto-viewer
 if WITHDISPLAY:
-    display = crocoddyl.GepettoDisplay(robot, 4, 4, cameraTF)
+    display = crocoddyl.GepettoDisplay(robot)
     display.displayFromSolver(ddp)
-
-
-# # Visualizing the solution in gepetto-viewer
-# display.displayFromSolver(ddp)
-
-# robot_data = robot_model.createData()
-# xT = ddp.xs[-1]
-# pinocchio.forwardKinematics(robot_model, robot_data, xT[:state.nq])
-# pinocchio.updateFramePlacements(robot_model, robot_data)
-# print('Finally reached = ', robot_data.oMf[robot_model.getFrameId("wrist_tool_joint")].translation.T)
